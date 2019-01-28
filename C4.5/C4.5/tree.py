@@ -45,9 +45,6 @@ def split_data(data, feature, threshold):
         else:
             right.append(point)
             
-    # TODO: split data into left and right by given feature.
-    # left should contain points whose values are less than threshold
-    # right should contain points with values greater than or equal to threshold
     return (left, right)
 
 def count_labels(data):
@@ -61,8 +58,6 @@ def count_labels(data):
         else:
             counts[label] = 1
 
-    # TODO: counts should count the labels in data
-    # e.g. counts = {'spam': 10, 'ham': 4}
     return counts
 
 def counts_to_entropy(counts):
@@ -71,10 +66,11 @@ def counts_to_entropy(counts):
     elements = 0
     for w,i in counts.items():
         elements += i
+        
     for w,i in counts.items():
         prob = (i*1.0)/elements
-        entropy -= prob*log(prob,2);
-    # TODO: should convert a dictionary of counts into entropy
+        if(prob != 0):
+            entropy -= prob*log(prob,2);
     return entropy
     
 def get_entropy(data):
@@ -101,15 +97,24 @@ def find_best_threshold_fast(data, feature):
     entropy = get_entropy(data)
     best_gain = 0
     best_threshold = None
-    # TODO: Write a more efficient method to find the best threshold.
     data.sort(key = lambda p: p.values[feature])
-    for i in range(len(data)):
-        curr = (get_entropy(data[0:i])*i + get_entropy(data[i:len(data)])*(len(data)-i))/len(data)
-        gain = entropy - curr
-        if gain > best_gain:
-            best_gain = gain
-            best_threshold = data[i].values[feature]
-    
+    counts_left = count_labels(data[0:1])
+    counts_right = count_labels(data[1:len(data)])
+    for i in range(1,len(data)-1):
+        if(data[i].values[feature] > data[i-1].values[feature]): #can only split if different threshold
+            curr = (counts_to_entropy(counts_left)*i + counts_to_entropy(counts_right)*(len(data)-i))/len(data)
+            gain = entropy - curr
+            if gain > best_gain:
+                best_gain = gain
+                best_threshold = data[i].values[feature]
+
+        label = data[i].label
+        if(label in counts_left):
+            counts_left[label] += 1
+        else:
+            counts_left[label] = 1
+        counts_right[label] -= 1
+        
     return (best_gain, best_threshold)
 
 def find_best_split(data):
@@ -118,14 +123,13 @@ def find_best_split(data):
     best_feature = None
     best_threshold = None
     best_gain = 0
-     
+
     for f in range(len(data[0].values)):
         gain, threshold = find_best_threshold_fast(data,f)
         if gain>=best_gain and gain != 0:
             best_feature = f
             best_threshold = threshold
             best_gain = gain
-    # TODO: find the feature and threshold that maximize information gain.
 
     return (best_feature, best_threshold)
 
@@ -141,16 +145,34 @@ def make_leaf(data):
 def c45(data, max_levels):
     if max_levels <= 0:
         return make_leaf(data)
-    # TODO: Construct a decision tree with the data and return it.
-    # Your algorithm should return a leaf if the maximum level depth is reached
-    # or if there is no split that gains information, otherwise it should greedily
-    # choose an feature and threshold to split on and recurse on both partitions
-    # of the data.
-    return make_leaf(data)
+    best_feature, best_threshold = find_best_split(data)
+    if best_feature == None:
+        return make_leaf(data)
 
+    left,right = split_data(data, best_feature, best_threshold)
+    left_tree = c45(left, max_levels-1)
+    right_tree = c45(right, max_levels-1)
+    tree = Tree()
+    tree.leaf = False
+    tree.left = left_tree
+    tree.right = right_tree
+    
+    counts = count_labels(data)
+    prediction = {}
+    for label in counts:
+        prediction[label] = float(counts[label])/len(data)
+    tree.prediction = prediction
+
+    tree.feature = best_feature
+    tree.threshold = best_threshold
+    return tree
+
+#In order to increase accuracy, I increased the maximum number of levels within the decision tree
+#This affects the accuracy because additional boundaries can be added to decisions
+#Each split allow additional information to be gained for the real data and that will allow
+# for more precise decisions
 def submission(train, test):
-    # TODO: Once your tests pass, make your submission as good as you can!
-    tree = c45(train, 4)
+    tree = c45(train, 9)
     predictions = []
     for point in test:
         predictions.append(predict(tree, point))
