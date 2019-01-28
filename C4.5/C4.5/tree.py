@@ -37,6 +37,14 @@ def accuracy(data, predictions):
 def split_data(data, feature, threshold):
     left = []
     right = []
+
+    for i in range(len(data)):
+        point = data[i]
+        if(point.values[feature] < threshold):
+            left.append(point)
+        else:
+            right.append(point)
+            
     # TODO: split data into left and right by given feature.
     # left should contain points whose values are less than threshold
     # right should contain points with values greater than or equal to threshold
@@ -44,12 +52,28 @@ def split_data(data, feature, threshold):
 
 def count_labels(data):
     counts = {}
+
+    for i in range(len(data)):
+        point = data[i]
+        label = point.label
+        if label in counts:
+            counts[label] = counts[label] + 1
+        else:
+            counts[label] = 1
+
     # TODO: counts should count the labels in data
     # e.g. counts = {'spam': 10, 'ham': 4}
     return counts
 
 def counts_to_entropy(counts):
     entropy = 0.0
+
+    elements = 0
+    for w,i in counts.items():
+        elements += i
+    for w,i in counts.items():
+        prob = (i*1.0)/elements
+        entropy -= prob*log(prob,2);
     # TODO: should convert a dictionary of counts into entropy
     return entropy
     
@@ -78,6 +102,14 @@ def find_best_threshold_fast(data, feature):
     best_gain = 0
     best_threshold = None
     # TODO: Write a more efficient method to find the best threshold.
+    data.sort(key = lambda p: p.values[feature])
+    for i in range(len(data)):
+        curr = (get_entropy(data[0:i])*i + get_entropy(data[i:len(data)])*(len(data)-i))/len(data)
+        gain = entropy - curr
+        if gain > best_gain:
+            best_gain = gain
+            best_threshold = data[i].values[feature]
+    
     return (best_gain, best_threshold)
 
 def find_best_split(data):
@@ -86,7 +118,15 @@ def find_best_split(data):
     best_feature = None
     best_threshold = None
     best_gain = 0
+     
+    for f in range(len(data[0].values)):
+        gain, threshold = find_best_threshold_fast(data,f)
+        if gain>=best_gain and gain != 0:
+            best_feature = f
+            best_threshold = threshold
+            best_gain = gain
     # TODO: find the feature and threshold that maximize information gain.
+
     return (best_feature, best_threshold)
 
 def make_leaf(data):
